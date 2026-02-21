@@ -21,12 +21,16 @@ def crea_funzione_calcolo_punteggio(dizionario_pokemon: Dict[str, Dict]) -> Call
 
     return calcola_punteggio
 
-def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1.0, beta: float = 0.5) -> Callable:
+
+def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, dict_tipi: Dict, alpha: float = 1.0, beta: float = 0.5,
+                            gamma: float = 30.0) -> Callable:
     """
     dict_forza: Dizionario { 'id': score_lgbm }
     dict_ruoli: Dizionario { 'id': {'cluster': int, 'vector': np.array} }
+    dict_tipi: Dizionario { 'id': ['Type1', 'Type2'] }
     alpha: Peso della forza bruta
     beta: Peso della diversità di squadra
+    gamma: Peso della penalità per tipi elementali sovrapposti
     """
 
     def calcola_punteggio_sinergico(squadra_id: List[str]) -> float:
@@ -34,6 +38,7 @@ def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1
         vettori_squadra = []
         cluster_visti = set()
         penalita_ruoli_doppi = 0.0
+        conteggio_tipi = {}
 
         for p_id in squadra_id:
             # 1. Somma la forza predetta da LightGBM
@@ -48,14 +53,27 @@ def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1
                 penalita_ruoli_doppi += 1.0  # Valore da bilanciare empiricamente
             cluster_visti.add(ruolo)
 
+            #Popola il conteggio dei tipi per questo Pokémon
+            if p_id in dict_tipi:
+                for tipo in dict_tipi[p_id]:
+                    conteggio_tipi[tipo] = conteggio_tipi.get(tipo, 0) + 1
+
         # 2. Calcola la diversità usando la distanza coseno media tra tutti i membri
         # pdist calcola le distanze a coppie (15 coppie per 6 vettori)
         # La distanza coseno va da 0 (identici) a 2 (opposti).
         distanze = pdist(vettori_squadra, metric='cosine')
         diversita_media = np.mean(distanze)
 
-        # 3. Score finale
-        score_finale = (alpha * forza_totale) + (beta * diversita_media) - penalita_ruoli_doppi
+        # --- NUOVO: Calcola la penalità cumulativa per i tipi doppi ---
+        penalita_tipi = 0.0
+        for tipo, count in conteggio_tipi.items():
+            if count > 1:
+                # Se un tipo compare più di 1 volta, moltiplichiamo l'eccesso per gamma.
+                # Es: 3 Pokémon di tipo Drago = (3 - 1) * 30 = 60 punti di penalità.
+                penalita_tipi += (count - 1) * gamma
+
+        # 3. Score finale (Sottraiamo la nuova penalità dei tipi)
+        score_finale = (alpha * forza_totale) + (beta * diversita_media) - penalita_ruoli_doppi - penalita_tipi
 
         return score_finale
 
@@ -99,8 +117,24 @@ def carica_ruoli_da_csv(file_ruoli: str) -> Dict[str, Dict]:
 
     return dict_ruoli
 
+
+def carica_tipi_pokemon(file_db: str) -> dict:
+    """Legge il CSV e mappa ID -> ['Tipo1', 'Tipo2']"""
+    dict_tipi = {}
+    with open(file_db, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for riga in reader:
+            # Prende la prima colonna come ID (che sia '#' o 'pokedex_number')
+            p_id = list(riga.values())[0].strip()
+
+            # Estrae i tipi ignorando le stringhe vuote
+            tipi = [riga.get('Type 1', ''), riga.get('Type 2', '')]
+            dict_tipi[p_id] = [t for t in tipi if t]  # Rimuove i vuoti
+
+    return dict_tipi
+
 # --- CONFIGURAZIONE VINCOLI ---
-TEAM_PARZIALE = ["6", "25", "149"] #Insieme di pokémon obbligatori, può essere cambiato dall'utente per partire da un team diverso
+TEAM_PARZIALE = ["16", "29", "161"] #Insieme di pokémon obbligatori, può essere cambiato dall'utente per partire da un team diverso
 
 if __name__ == "__main__":
     # --- 1. SETUP DEI FILE ---
@@ -116,6 +150,9 @@ if __name__ == "__main__":
     print("Caricamento ruoli precalcolati...")
     dizionario_ruoli = carica_ruoli_da_csv(FILE_RUOLI)
 
+    print("Caricamento tipi...")
+    dizionario_tipi = carica_tipi_pokemon(FILE_NOMI)
+
     if not db_pokemon or not dizionario_ruoli:
         print("Errore nel caricamento dei dati. Controlla i file CSV.")
         exit(1)
@@ -126,12 +163,12 @@ if __name__ == "__main__":
 
     print(f"Pokémon validi pronti per la selezione: {len(lista_id)}")
 
-    evaluator = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, alpha=1.0, beta=50.0)
+    evaluator = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, dizionario_tipi, alpha=1.0, beta=20.0, gamma=15.0)
 
     # --- 4. AVVIO RICERCA ---
     print("\nInizio la ricerca con Greedy Ascent...")
     team_id, punti_con_distanza = greedy_ascent(lista_id, evaluator, TEAM_PARZIALE)
-    true_eval = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, alpha=1.0, beta=0.0)
+    true_eval = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, dizionario_tipi, alpha=1.0, beta=0.0, gamma=15.0)
     punti = true_eval(team_id)
 
     # --- 5. RISULTATI ---
