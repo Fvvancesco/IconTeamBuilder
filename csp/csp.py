@@ -22,7 +22,10 @@ def greedy_ascent(
     # Ciclo per i Riavvi Casuali (Random Restarts)
     for run in range(num_restarts):
         # 1. Inizializzazione casuale per la run corrente
-        team_corrente = fixed_ids+genera_team_casuale(lista_id_pokemon, 6-len(fixed_ids))
+
+        # Filtriamo gli ID già bloccati per evitare duplicati
+        pool_disponibili = [pid for pid in lista_id_pokemon if pid not in fixed_ids]
+        team_corrente = fixed_ids + genera_team_casuale(pool_disponibili, 6 - len(fixed_ids))
         punteggio_corrente = black_box_score(team_corrente)
 
         iterazione = 0
