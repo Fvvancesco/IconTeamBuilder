@@ -21,7 +21,6 @@ def crea_funzione_calcolo_punteggio(dizionario_pokemon: Dict[str, Dict]) -> Call
 
     return calcola_punteggio
 
-
 def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1.0, beta: float = 0.5) -> Callable:
     """
     dict_forza: Dizionario { 'id': score_lgbm }
@@ -46,7 +45,7 @@ def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1
             # Opzionale: Penalizza se due Pokémon hanno lo stesso cluster (ruolo)
             ruolo = dict_ruoli[p_id]['cluster']
             if ruolo in cluster_visti:
-                penalita_ruoli_doppi += 5000.0  # Valore da bilanciare empiricamente
+                penalita_ruoli_doppi += 1.0  # Valore da bilanciare empiricamente
             cluster_visti.add(ruolo)
 
         # 2. Calcola la diversità usando la distanza coseno media tra tutti i membri
@@ -56,12 +55,11 @@ def crea_valutatore_squadra(dict_forza: Dict, dict_ruoli: Dict, alpha: float = 1
         diversita_media = np.mean(distanze)
 
         # 3. Score finale
-        score_finale = (alpha * forza_totale) + (beta * diversita_media * 10) - penalita_ruoli_doppi
+        score_finale = (alpha * forza_totale) + (beta * diversita_media) - penalita_ruoli_doppi
 
         return score_finale
 
     return calcola_punteggio_sinergico
-
 
 def carica_ruoli_da_csv(file_ruoli: str) -> Dict[str, Dict]:
     """
@@ -101,6 +99,9 @@ def carica_ruoli_da_csv(file_ruoli: str) -> Dict[str, Dict]:
 
     return dict_ruoli
 
+# --- CONFIGURAZIONE VINCOLI ---
+TEAM_PARZIALE = ["6", "25", "149"] #Insieme di pokémon obbligatori, può essere cambiato dall'utente per partire da un team diverso
+
 if __name__ == "__main__":
     # --- 1. SETUP DEI FILE ---
     # I file in ingresso che devono essere già stati generati dagli altri script
@@ -125,11 +126,13 @@ if __name__ == "__main__":
 
     print(f"Pokémon validi pronti per la selezione: {len(lista_id)}")
 
-    evaluator = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, alpha=1.0, beta=20.0)
+    evaluator = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, alpha=1.0, beta=50.0)
 
     # --- 4. AVVIO RICERCA ---
     print("\nInizio la ricerca con Greedy Ascent...")
-    team_id, punti = greedy_ascent(lista_id, evaluator)
+    team_id, punti_con_distanza = greedy_ascent(lista_id, evaluator, TEAM_PARZIALE)
+    true_eval = crea_valutatore_squadra(db_pokemon, dizionario_ruoli, alpha=1.0, beta=0.0)
+    punti = true_eval(team_id)
 
     # --- 5. RISULTATI ---
     print("\n" + "=" * 50)

@@ -3,11 +3,16 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-import numpy as np
-import pandas as pd
 from lightgbm import LGBMRanker
 from sklearn.model_selection import GroupKFold, ParameterSampler
+import pandas as pd
+import numpy as np
 import joblib
+import warnings
+
+
+
+warnings.filterwarnings("ignore")
 
 # ==========================================
 # CONFIGURAZIONI GLOBALI
@@ -97,6 +102,7 @@ def pairwise_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     true_diff = y_true[0::2] - y_true[1::2]
     correct_predictions = (np.sign(pred_diff) == np.sign(true_diff)).sum()
     return correct_predictions / max(1, len(pred_diff))
+
 
 
 def main():
@@ -196,7 +202,3 @@ def main():
 
     out.to_csv(SCORES_OUT, index=False)
     print(f"Punteggi salvati in: {SCORES_OUT}")
-
-
-if __name__ == "__main__":
-    main()

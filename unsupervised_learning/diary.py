@@ -61,6 +61,7 @@ def analisi_pca_automatica(analyzer, base_stats):
     print(
         "   Avendo Difese sproporzionate e Velocità nulla, Shuckle distorce l'asse PC2 allungandolo in modo anomalo.\n")
     """
+
 def analisi_pca_manuale(analyzer, base_stats):
     print("\n--- CAPITOLO 2: Esecuzione 'PCA Manuale' (2D) ---")
     print("Calcolo degli Assi: Offesa vs Difesa & Speciale vs Fisico")
@@ -101,10 +102,7 @@ def analisi_pca_manuale(analyzer, base_stats):
             show=True
         )
 
-    """print(
-        "   *Conclusione Test 2D:* Il punteggio è sceso rispetto alle stat grezze perché abbiamo schiacciato troppe informazioni.")
-    print("   Questo spazio separa bene i Wall (basso X) dagli Attaccanti (alto X), e i picchiatori Fisici (basso Y)")
-    print("   dai maghi Speciali (alto Y). Tuttavia, manca qualcosa di vitale per il gioco...")
+    """print(*Conclusione Test 2D:* Il punteggio è sceso rispetto alle stat grezze perché abbiamo schiacciato troppe informazioni.")
 
     print("\n   *Conclusione del Capitolo 2:*")
     print(f"   Inserendo la Velocità, la Silhouette si è rialzata ({score_3d:.3f}), dimostrando che la Velocità crea")
@@ -139,7 +137,6 @@ def analisi_pca_3d(analyzer):
         zlabel='Velocità',
         save_path='03_test_manuale_3d.png', show=False
     )
-
 
 def clustering_guidato(analyzer):
     # ---------------------------------------------------------
@@ -248,7 +245,6 @@ def applicazione_grid_search(analyzer, data_path):
     print("ma che perdono il senso tattico (es. aggregare Attack e Speed insieme).")
     print("Questo dimostra che il Feature Engineering basato sulla Domain Knowledge (Capitolo 3) ")
     print("è l'approccio scientificamente più valido per questo dominio di dati.")
-
 
 def diario_esperimento():
     data_path = '..\Dataset\pokemon_cleaned.csv'
